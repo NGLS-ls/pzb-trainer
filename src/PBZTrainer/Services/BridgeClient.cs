@@ -247,6 +247,13 @@ namespace PBZTrainer.Services
         {
             foreach (var vm in items)
             {
+                // 养成货币与升级材料倍率由 MaterialMultiplierService 独立管理，不被底层桥接回读覆盖
+                if (string.Equals(vm.Id, "dust_gain", StringComparison.OrdinalIgnoreCase))
+                {
+                    vm.IsSupported = true;
+                    continue;
+                }
+
                 if (!FeatureStates.TryGetValue(vm.Id, out var s)) continue;
                 vm.IsSupported = IsTrue(s["supported"]) || !s.ContainsKey("supported");
                 vm.ExtraNote = KnownLimited.TryGetValue(vm.Id, out var note) ? note : "";
