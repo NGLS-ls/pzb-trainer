@@ -1,0 +1,59 @@
+name: Build PBZTrainer
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Release Single-File Trainer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish Single-File Executable
+        run: |
+          dotnet publish src\PBZTrainer\PBZTrainer.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:EmbedBridge=true -p:DebugType=none -o out
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PBZTrainer-win-x64
+          path: out/PBZTrainer.exe
+
+      - name: Create or Update Release
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.11.16-fix
+          name: PBZTrainer v1.11.16 (养成货币与材料倍率生效版)
+          body: |
+            ### 影之刃零修改器 · 养成货币与材料倍率修复版 (PBZTrainer-win-x64)
+
+            本构建由 GitHub Actions 云端自动打包生成。
+
+            #### 核心修复与升级：
+            - **修复养成货币倍率**：解决游戏底层不读取属性乘数导致倍率无效的问题，通过增量补偿机制实现真正的获取倍率放大。
+            - **材料获取全面生效（共 33 项）**：
+              - 基础养成货币：意识尘埃 (`currency:dust`)
+              - 饰品打磨材料：污秽残晶、提纯靛晶
+              - 药水升级记忆：学徒/熟练/大师药师记忆
+              - 主武器升级材料：铸造/双生/长板金属各阶及各阶溶剂（共 12 项）
+              - 影之武装升级材料：异铜、魔火炭、机关齿轮、古木、香灰各阶（共 15 项）
+              - 严格剔除铸魂材料与饰品碎片，保障核心平衡。
+            - **内置运行模块**：已自动将 `PBZBridge.dll` 打包进单文件，开箱即用，免配置环境。
+          files: out/PBZTrainer.exe
