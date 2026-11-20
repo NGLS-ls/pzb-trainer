@@ -59,7 +59,7 @@ namespace PBZTrainer.Views
             InitializeComponent();
 
             _overlay = new OverlayService(_bridge);
-            _multiplierService = new MaterialMultiplierService(_bridge);
+            _multiplierService = new MaterialMultiplierService(_bridge, msg => Dispatcher.Invoke(() => ShowToast(msg, 3.5)));
 
             _bridge.Changed += () => Dispatcher.BeginInvoke(new Action(RefreshStatus));
             _poll.Tick += async (_, __) => await PollAsync();
@@ -180,9 +180,10 @@ namespace PBZTrainer.Views
                         _bridge.ApplyStates(_all);
                         var dustVm = _all.FirstOrDefault(x => x.Id == "dust_gain");
                         if (dustVm != null && dustVm.IsEnabled)
+                        {
+                            dustVm.IsApplied = true;
                             _multiplierService.Start(dustVm.NumericValue);
-                        else
-                            _multiplierService.Stop();
+                        }
                     });
                     RebuildHotkeys();
                     ShowToast(_bridge.GateOk
@@ -809,6 +810,24 @@ namespace PBZTrainer.Views
                 return;
             }
 
+            if (string.Equals(vm.Id, "dust_gain", StringComparison.OrdinalIgnoreCase))
+            {
+                vm.IsEnabled = target;
+                vm.IsApplied = target;
+                if (target)
+                {
+                    _multiplierService.Start(vm.NumericValue);
+                    ShowToast(vm.Title + $" · 已开启 ({vm.NumericValue:0.#}x)");
+                }
+                else
+                {
+                    _multiplierService.Stop();
+                    ShowToast(vm.Title + " · 已关闭");
+                }
+                ScheduleSave();
+                return;
+            }
+
             if (vm.IsBusy) return;
 
             bool previous = !target;
@@ -847,14 +866,6 @@ namespace PBZTrainer.Views
                 });
                 await _bridge.RefreshAsync();
                 Sync(() => _bridge.ApplyStates(_all));
-
-                if (vm.Id == "dust_gain")
-                {
-                    if (vm.IsEnabled)
-                        _multiplierService.Start(vm.NumericValue);
-                    else
-                        _multiplierService.Stop();
-                }
             }
             catch (Exception ex)
             {
